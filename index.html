@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Library Book Request</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container py-5">
+    <h2 class="mb-4 text-center">Library Book List</h2>
+    <input type="text" id="searchInput" class="form-control mb-4" placeholder="Search books...">
+    <div class="row" id="book-list"></div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="requestModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Request Book</h5></div>
+        <div class="modal-body">
+          <input class="form-control mb-2" id="name" placeholder="Your Name" />
+          <input class="form-control mb-2" id="memberId" placeholder="Membership ID" />
+          <input class="form-control mb-2" id="bookName" disabled />
+          <input class="form-control mb-2" id="serialNo" disabled />
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="sendWhatsApp()">Send via WhatsApp</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const apiURL = "https://your-backend-url.onrender.com"; // Replace with Render backend URL
+    const modal = new bootstrap.Modal(document.getElementById('requestModal'));
+    let allBooks = [];
+
+    function openModal(book) {
+      document.getElementById("bookName").value = book.title;
+      document.getElementById("serialNo").value = book.serial;
+      document.getElementById("name").value = "";
+      document.getElementById("memberId").value = "";
+      modal.show();
+    }
+
+    function sendWhatsApp() {
+      const name = document.getElementById("name").value.trim();
+      const memberId = document.getElementById("memberId").value.trim();
+      const bookName = document.getElementById("bookName").value;
+      const serialNo = document.getElementById("serialNo").value;
+
+      if (!name || !memberId) {
+        alert("Fill all fields.");
+        return;
+      }
+
+      fetch(`${apiURL}/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serial: serialNo })
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.error) {
+          alert(res.error);
+        } else {
+          const msg = `Requesting Book:\nName: ${name}\nID: ${memberId}\nBook: ${bookName}\nSerial: ${serialNo}`;
+          window.location.href = `https://wa.me/919645245018?text=${encodeURIComponent(msg)}`;
+        }
+      });
+    }
+
+    function displayBooks(books) {
+      const container = document.getElementById("book-list");
+      container.innerHTML = "";
+      const colors = { "Available": "success", "Requested": "warning", "Checked Out": "danger" };
+
+      books.forEach(book => {
+        const card = document.createElement("div");
+        card.className = "col-md-4 mb-4";
+        card.innerHTML = `
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title">${book.title}</h5>
+              <p>Serial: ${book.serial}</p>
+              <span class="badge bg-${colors[book.status]}">${book.status}</span><br><br>
+              <button class="btn btn-primary" ${book.status !== "Available" ? "disabled" : ""} onclick='openModal(${JSON.stringify(book)})'>
+                Request Book
+              </button>
+            </div>
+          </div>`;
+        container.appendChild(card);
+      });
+    }
+
+    fetch(`${apiURL}/books`)
+      .then(res => res.json())
+      .then(data => {
+        allBooks = data;
+        displayBooks(allBooks);
+      });
+
+    document.getElementById("searchInput").addEventListener("input", function () {
+      const q = this.value.toLowerCase();
+      displayBooks(allBooks.filter(b =>
+        b.title.toLowerCase().includes(q) ||
+        b.serial.toLowerCase().includes(q) ||
+        b.status.toLowerCase().includes(q)
+      ));
+    });
+  </script>
+</body>
+</html>
